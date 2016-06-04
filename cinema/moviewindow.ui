@@ -32,6 +32,12 @@
     </property>
     <item>
      <widget class="QGroupBox" name="groupBox">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>500</height>
+       </size>
+      </property>
       <property name="title">
        <string>Каталог фильмецов</string>
       </property>
@@ -60,6 +66,12 @@
        </item>
        <item>
         <widget class="QGroupBox" name="groupBox_2">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>284</height>
+          </size>
+         </property>
          <property name="title">
           <string>Редактирование фильма</string>
          </property>
@@ -132,12 +144,9 @@
            </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QComboBox" name="actorsEdit">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="editable">
-             <bool>false</bool>
+           <widget class="QPushButton" name="actorsShowButton">
+            <property name="text">
+             <string>Список актеров</string>
             </property>
            </widget>
           </item>
@@ -165,7 +174,7 @@
           <item row="6" column="1">
            <widget class="QSpinBox" name="ageRestrictionEdit"/>
           </item>
-          <item row="10" column="0" colspan="2">
+          <item row="8" column="0" colspan="2">
            <layout class="QHBoxLayout" name="horizontalLayout">
             <property name="sizeConstraint">
              <enum>QLayout::SetDefaultConstraint</enum>
@@ -205,8 +214,6 @@
  <tabstops>
   <tabstop>movieTable</tabstop>
   <tabstop>titleEdit</tabstop>
-  <tabstop>actorsEdit</tabstop>
-  <tabstop>genreEdit</tabstop>
  </tabstops>
  <resources/>
  <connections/>

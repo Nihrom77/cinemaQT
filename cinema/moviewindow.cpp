@@ -1,6 +1,8 @@
 #include "moviewindow.h"
 
 #include "moviedelegate.h"
+
+#include "actorsdialog.h"
 #include "initDB.h"
 #include <QtSql>
 
@@ -12,7 +14,7 @@ MovieWindow::MovieWindow()
      createMenuBar();
     //Проверка наличия драйвера postgres
     if (!QSqlDatabase::drivers().contains("QPSQL"))
-        QMessageBox::critical(this, "Unable to load database", "This demo needs the SQLITE driver");
+        QMessageBox::critical(this, "Unable to load database", "This  needs the QPSQL driver");
 
     //Инициализация подключения к БД
     QSqlError err = initDb();
@@ -22,8 +24,8 @@ MovieWindow::MovieWindow()
     }
 
     // Create the data model
-    movieModel = new EditableSqlModel(ui.movieTable);//связываем модель и UI
-   // movieModel->setEditStrategy(QSqlTableModel::OnFieldChange);
+    movieModel = new QSqlQueryModel(ui.movieTable);//связываем модель и UI
+
 //    movieModel->setTable("movies");//связываем модель и таблицу в БД
     movieModel->setQuery("select m.movie_id, m.name,m.duration, m.country, m.movie_company,m.age_restriction,  mg.genres,rls.roles from movies m "
                          "left join "
@@ -38,18 +40,6 @@ MovieWindow::MovieWindow()
                          "order by m.name");
 
 
-
-    // Устанавливаем связь с таблицей
-    /* Устанавливаем связи с таблицей "фильм_жанр", по которым будет производится
-         * подстановка данных
-         * В метода setRelation указывается номер колонки, в которой будет
-         * производится подстановка, а также с помощью класса
-         * QSqlRelation указывается имя таблицы,
-         * параметр, по которому будет произведена выборка строки
-         * и колонка, из которой будут взяты данные
-         * */
-//    movieModel->setRelation(movieModel->fieldIndex("movie_id"), QSqlRelation("table_movie_genre", "movie_id", "genre_id"));
-//    movieModel->setRelation(genreIdx, QSqlRelation("genre", "genre_id", "name"));
 
     // Устанавливаем в модели названи колонок
     movieModel->setHeaderData(movieModel->record().indexOf("name"), Qt::Horizontal, tr("Название"));
@@ -143,7 +133,7 @@ void MovieWindow::deleteMovie()
                     query_movie.addBindValue(ID);
                     query_movie.exec();
 
-                    movieModel->refresh();
+                   refresh();
 
         }
     } else {
@@ -213,7 +203,7 @@ void MovieWindow::on_addFilmButton_clicked()
     QMessageBox::about(this, tr("Add movie"),
             tr("<p>movie added. %1</p>").arg(ui.titleEdit->text()));
     addMovie();
-    movieModel->refresh();
+    refresh();
 }
 
 void MovieWindow::on_movieTable_clicked(const QModelIndex &index)
@@ -223,29 +213,23 @@ void MovieWindow::on_movieTable_clicked(const QModelIndex &index)
 
 
 if (!movie_id.isNull() && !movie_id.isEmpty()) {
-    genreModel = new QSqlQueryModel(this);
+    currentMovie = movieModel->data(movieModel->index(index.row(),movieModel->record().indexOf("name"))).toString();
     QSqlQuery query_genres;
     query_genres.prepare("select g.name,g.genre_id,case when coalesce(tg.id) is null then false else true end as check1 from genre g "
                          "left join (select g.genre_id as id "
                          "from genre g inner join table_movie_genre t_mg on t_mg.genre_id = g.genre_id "
                          "where t_mg.movie_id = :movie_id) tg on tg.id = g.genre_id order by g.name ");
     query_genres.bindValue(":movie_id", movie_id.toInt());
-//    genreModel->setQuery(query_genres);
 query_genres.exec();
 
 
-//    ui.genreEdit->setColumnHidden(genreEdit->record().indexOf("genre_id"), true);
-//    ui.genreEdit->setColumnHidden(genreEdit->record().indexOf("check1"), true);
-//    ui.genreEdit->setModel(genreModel);
-//    ui.genreEdit->setModelColumn(genreModel->record().indexOf("name"));
-
-    QStandardItemModel *model1 = new QStandardItemModel(query_genres.size(), 1);
+    QStandardItemModel *model1 = new QStandardItemModel(query_genres.size(), 2);
    // qDebug("pp "+query_genres.size());
        int i = 0;
        while (query_genres.next())
        {
             QString name = query_genres.value(0).toString();
-            int genre_id = query_genres.value(1).toInt();
+            QString genre_id = query_genres.value(1).toString();
             boolean check1 = query_genres.value(2).toBool();
 
          //  qDebug("kek "+name.toUtf8()+" "+check1);
@@ -258,8 +242,193 @@ query_genres.exec();
               item->setData(Qt::Unchecked, Qt::CheckStateRole);
            }
            model1->setItem(i, 0, item);
+           QStandardItem* item1 = new QStandardItem(genre_id);
+           model1->setItem(i,1,item1);
            i++;
        }
+        genresItemModel=model1;
        ui.genreEdit->setModel(model1);
+
+
+actorsItemModel = createActorModel(movie_id);
+
+
+
+
+
+
+
+
+
 }
+}
+QStandardItemModel* MovieWindow::createActorModel(QString &movie_id){
+
+    //актеры
+
+           QSqlQuery query_actors;
+           query_actors.prepare("select g.name || ' ' || g.second_name as name,  tg.role as roles,g.actor_id,case when coalesce(tg.id) is null then false else true end as check1 from actor g "
+                                "left join (select g.actor_id as id ,t_mg.role "
+                                "from actor g inner join participation t_mg on t_mg.actor_id = g.actor_id "
+                                "where t_mg.movie_id = :movie_id) tg on tg.id = g.actor_id  ");
+           query_actors.bindValue(":movie_id", movie_id.toInt());
+       query_actors.exec();
+
+       QStandardItemModel *model2 = new QStandardItemModel(query_actors.size(), 2);
+       model2->setHeaderData(0,Qt::Horizontal, tr("Актер"));
+       model2->setHeaderData(1,Qt::Horizontal, tr("Роль"));
+
+      // qDebug("pp "+query_genres.size());
+          int j = 0;
+          while (query_actors.next())
+          {
+               QString name = query_actors.value(0).toString();
+               QString role = query_actors.value(1).toString();
+               QString actor_id = query_actors.value(2).toString();
+
+
+            //  qDebug("kek "+name.toUtf8()+" "+check1);
+              QStandardItem* item = new QStandardItem(name);//name
+              //item->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+              model2->setItem(j, 0, item);
+
+              QStandardItem* item1 = new QStandardItem(role);//role
+              model2->setItem(j, 1, item1);
+
+              QStandardItem* item2 = new QStandardItem(actor_id);//actor_id
+            model2->setItem(j, 2, item2);
+              j++;
+          }
+return model2;
+
+
+}
+void MovieWindow::on_changeMovie_clicked()
+{
+    //Изменения фильма
+   QString movie_id = movieModel->data(movieModel->index(ui.movieTable->selectionModel()->currentIndex().row(),movieModel->record().indexOf("movie_id"))).toString();
+
+    QSqlQuery query_updateMovie;
+    query_updateMovie.prepare("update movies "
+                           "set name = :name, "
+                           " duration = :duration, "
+                           " country = :country, "
+                           " movie_company = :movie_company, "
+                           " age_restriction = :age_restriction "
+                           "where movie_id = :movie_id");
+    query_updateMovie.bindValue(":name", ui.titleEdit->text());
+    query_updateMovie.bindValue(":duration", ui.durationEdit->text().toInt());
+    query_updateMovie.bindValue(":country", ui.madeInEdit->text());
+    query_updateMovie.bindValue(":movie_company", ui.studioEdit->text());
+    query_updateMovie.bindValue(":age_restriction", ui.ageRestrictionEdit->text().toInt());
+    query_updateMovie.bindValue(":movie_id", movie_id.toInt());
+
+   query_updateMovie.exec();
+   qDebug(query_updateMovie.executedQuery().toUtf8());
+   //showError(query_updateMovie.lastError());
+
+
+   //удаление связей фильма с жанрами
+    QSqlQuery query_delGenre;
+    query_delGenre.prepare("delete table_movie_genre where movie_id = :movie_id");
+
+    query_delGenre.bindValue(":movie_id", movie_id.toInt());
+    query_delGenre.exec();
+    qDebug(query_delGenre.lastQuery().toUtf8());
+
+    //Добавляем выбранные жанры
+    QSqlQuery query_insGenre;
+    QString insertG ="insert into table_movie_genre (movie_id,genre_id) values ";
+    QString genres  = insertG;
+    QAbstractItemModel *m = ui.genreEdit->model();
+    QStandardItemModel *model1 = qobject_cast<QStandardItemModel*>(ui.genreEdit->model());
+    for(int i=0;i<model1->rowCount();i++){
+       QString genre_id =  model1->data(model1->index(i,1)).toString();
+      QStandardItem *currentItem = model1->item(i);
+
+              Qt::CheckState checkState = static_cast<Qt::CheckState>(currentItem->data(Qt::CheckStateRole).toInt());
+
+              if (checkState == Qt::Checked)
+              {
+                    if(genres.length()!= insertG.length()){
+                        genres.append(", ");
+                    }
+                  genres.append("( ").append(movie_id).append(" , ").append(genre_id).append(" )");
+
+              }
+    }
+
+
+    query_insGenre.prepare(genres);
+    if(genres.length()> insertG.length()){
+    query_insGenre.exec();
+
+    qDebug(query_insGenre.lastQuery().toUtf8());
+}
+    genres.clear();insertG.clear();
+
+    //удаление связей фильма с актерами
+     QSqlQuery query_delActor;
+     query_delActor.prepare("delete participation where movie_id = :movie_id");
+     query_delActor.bindValue(":movie_id", movie_id.toInt());
+     query_delActor.exec();
+     qDebug(query_delActor.lastQuery().toUtf8());
+
+
+     //Добавляем связь с актерами
+     QSqlQuery query_insRoles;
+     QString insertR ="insert into participation (movie_id,actor_id,role) values ";
+     QString roles = insertR;
+    for(int i=0;i<actorsItemModel->rowCount();i++){
+        QString actor_id =  actorsItemModel->data(actorsItemModel->index(i,2)).toString();
+        QString role =  actorsItemModel->data(actorsItemModel->index(i,1)).toString();
+
+        if(!role.isNull() && !role.isEmpty()){
+            if(roles.length()!= insertR.length()){
+                roles.append(", ");
+            }
+          roles.append("( ").append(movie_id).append(" , ").append(actor_id).append(", '").append(role).append("' )");
+        }
+    }
+    query_insRoles.prepare(roles);
+    if(roles.length()>insertR.length()){
+        query_insRoles.exec();
+        qDebug(query_insRoles.lastQuery().toUtf8());
+    }
+    roles.clear();insertR.clear();
+     refresh();
+
+}
+
+void MovieWindow::on_actorsShowButton_clicked()
+{
+    //показать актеров
+
+    ActorsDialog *dialog = new ActorsDialog(actorsItemModel,currentMovie,this);
+    dialog->show();
+
+
+}
+
+void MovieWindow::refresh()
+{
+    movieModel->setQuery("select m.movie_id, m.name,m.duration, m.country, m.movie_company,m.age_restriction,  mg.genres,rls.roles from movies m "
+                         "left join "
+                         "(select m.movie_id as id,string_agg(g.name,', ') as genres from movies m inner join table_movie_genre t_mg on t_mg.movie_id = m.movie_id "
+                         "inner join  genre g on g.genre_id = t_mg.genre_id "
+                         "group by m.movie_id "
+                         ") mg on mg.id = movie_id "
+                         "left join "
+                         "(select m.movie_id as id,string_agg(act.second_name || ' ' || substring(act.name,0,2) || '. в роли \"' ||p.role||'\"','; ') as roles from movies m inner join participation p on p.movie_id = m.movie_id "
+                         "inner join actor act on act.actor_id = p.actor_id "
+                         "group by m.movie_id) rls on rls.id = m.movie_id");
+    // Устанавливаем в модели названи колонок
+    movieModel->setHeaderData(movieModel->record().indexOf("name"), Qt::Horizontal, tr("Название"));
+    movieModel->setHeaderData(movieModel->record().indexOf("duration"), Qt::Horizontal, tr("Продолжительность"));
+    movieModel->setHeaderData(movieModel->record().indexOf("country"), Qt::Horizontal, tr("Снято в"));
+    movieModel->setHeaderData(movieModel->record().indexOf("movie_company"), Qt::Horizontal, tr("Студия"));
+    movieModel->setHeaderData(movieModel->record().indexOf("age_restriction"), Qt::Horizontal, tr("Ограничение +"));
+    movieModel->setHeaderData(movieModel->record().indexOf("roles"), Qt::Horizontal, tr("Актеры"));
+    movieModel->setHeaderData(movieModel->record().indexOf("genres"), Qt::Horizontal, tr("Жанры"));
+   ui.movieTable->resizeColumnsToContents();
 }

@@ -6,7 +6,8 @@ QT += sql widgets widgets
 SOURCES += main.cpp \
     moviewindow.cpp \
     moviedelegate.cpp \
-    editablesqlmodel.cpp
+    editablesqlmodel.cpp \
+    actorsdialog.cpp
 
 
 
@@ -17,10 +18,12 @@ QML_IMPORT_PATH =
 include(deployment.pri)
 
 HEADERS =  moviewindow.h moviedelegate.h initDB.h \
-    editablesqlmodel.h
+    editablesqlmodel.h \
+    actorsdialog.h
 
 FORMS += \
-    moviewindow.ui
+    moviewindow.ui \
+    actorsdialog.ui
 
 INSTALLS += target
 
