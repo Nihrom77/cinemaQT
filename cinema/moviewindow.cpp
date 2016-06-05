@@ -196,6 +196,67 @@ void MovieWindow::addMovie()
        query_addMovie.exec();
 
      // showError(query_addMovie.lastError());
+
+       //добавляем связи актеры и жанры
+QSqlQuery newIndex;
+newIndex.prepare("select currval('movies_movie_id_seq') as id");
+newIndex.exec();
+newIndex.next();
+
+     QString movie_id = newIndex.value(0).toString();
+
+     //Добавляем выбранные жанры
+     QSqlQuery query_insGenre;
+     QString insertG ="insert into table_movie_genre (movie_id,genre_id) values ";
+     QString genres  = insertG;
+
+     QStandardItemModel *model1 = qobject_cast<QStandardItemModel*>(ui.genreEdit->model());
+     for(int i=0;i<model1->rowCount();i++){
+        QString genre_id =  model1->data(model1->index(i,1)).toString();
+       QStandardItem *currentItem = model1->item(i);
+
+               Qt::CheckState checkState = static_cast<Qt::CheckState>(currentItem->data(Qt::CheckStateRole).toInt());
+
+               if (checkState == Qt::Checked)
+               {
+                     if(genres.length()!= insertG.length()){
+                         genres.append(", ");
+                     }
+                   genres.append("( ").append(movie_id).append(" , ").append(genre_id).append(" )");
+
+               }
+     }
+     query_insGenre.prepare(genres);
+     if(genres.length()> insertG.length()){
+     query_insGenre.exec();
+     qDebug(query_insGenre.lastQuery().toUtf8());
+ }
+     genres.clear();insertG.clear();
+
+
+     //Добавляем связь с актерами
+     QSqlQuery query_insRoles;
+     QString insertR ="insert into participation (movie_id,actor_id,role) values ";
+     QString roles = insertR;
+    for(int i=0;i<actorsItemModel->rowCount();i++){
+        QString actor_id =  actorsItemModel->data(actorsItemModel->index(i,2)).toString();
+        QString role =  actorsItemModel->data(actorsItemModel->index(i,1)).toString();
+
+        if(!role.isNull() && !role.isEmpty()){
+            if(roles.length()!= insertR.length()){
+                roles.append(", ");
+            }
+          roles.append("( ").append(movie_id).append(" , ").append(actor_id).append(", '").append(role).append("' )");
+        }
+    }
+    query_insRoles.prepare(roles);
+    if(roles.length()>insertR.length()){
+        query_insRoles.exec();
+        qDebug(query_insRoles.lastQuery().toUtf8());
+    }
+    roles.clear();insertR.clear();
+
+
 }
 
 void MovieWindow::on_addFilmButton_clicked()
